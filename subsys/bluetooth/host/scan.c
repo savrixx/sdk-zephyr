@@ -462,8 +462,6 @@ static void le_adv_recv(bt_addr_le_t *addr, struct bt_le_scan_recv_info *info,
 				bt_lookup_id_addr(BT_ID_DEFAULT, addr));
 	}
 
-	info->addr = &id_addr;
-
 	if (scan_dev_found_cb) {
 		net_buf_simple_save(buf, &state);
 
@@ -472,6 +470,8 @@ static void le_adv_recv(bt_addr_le_t *addr, struct bt_le_scan_recv_info *info,
 
 		net_buf_simple_restore(buf, &state);
 	}
+
+	info->addr = &id_addr;
 
 	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&scan_cbs, listener, next, node) {
 		if (listener->recv) {
@@ -483,6 +483,9 @@ static void le_adv_recv(bt_addr_le_t *addr, struct bt_le_scan_recv_info *info,
 			net_buf_simple_restore(buf, &state);
 		}
 	}
+
+	/* Clear pointer to this stack frame before returning to calling function */
+	info->addr = NULL;
 
 #if defined(CONFIG_BT_CENTRAL)
 	check_pending_conn(&id_addr, addr, info->adv_props);
@@ -904,8 +907,8 @@ void bt_hci_le_per_adv_sync_established(struct net_buf *buf)
 			struct bt_le_per_adv_sync_term_info term_info;
 
 			/* Terminate the pending PA sync and notify app */
-			term_info.addr = &pending_per_adv_sync->addr;
-			term_info.sid = pending_per_adv_sync->sid;
+			term_info.addr = &evt->adv_addr;
+			term_info.sid = evt->sid;
 			term_info.reason = unexpected_evt ? BT_HCI_ERR_UNSPECIFIED : evt->status;
 
 			/* Deleting before callback, so the caller will be able
